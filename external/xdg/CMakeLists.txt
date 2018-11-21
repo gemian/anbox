@@ -21,4 +21,4 @@ add_executable(xdg_test xdg_test.cpp)
 set_property(TARGET xdg_test PROPERTY CXX_STANDARD 11)
 target_link_libraries(xdg_test xdg ${Boost_LIBRARIES})
 
-add_test(xdg_test xdg_test)
+#add_test(xdg_test xdg_test)

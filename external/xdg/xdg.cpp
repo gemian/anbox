@@ -30,7 +30,7 @@ fs::path throw_if_not_absolute(const fs::path& p)
     if (p.has_root_directory())
         return p;
 
-    throw std::runtime_error{"Directores MUST be absolute."};
+    throw std::runtime_error{"Directories MUST be absolute."};
 }
 
 namespace env

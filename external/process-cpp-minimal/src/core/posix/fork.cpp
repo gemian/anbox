@@ -97,12 +97,12 @@ ChildProcess fork(const std::function<posix::exit::Status()>& main,
             result = main();
         } catch(const std::exception& e)
         {
-            std::cerr << "core::posix::fork(): An unhandled std::exception occured in the child process:" << std::endl
+            std::cerr << "core::posix::fork(): An unhandled std::exception occurred in the child process:" << std::endl
                       << "  what(): " << e.what() << std::endl;
             print_backtrace(std::cerr, "  ");
         } catch(...)
         {
-            std::cerr << "core::posix::fork(): An unhandled exception occured in the child process." << std::endl;
+            std::cerr << "core::posix::fork(): An unhandled exception occurred in the child process." << std::endl;
             print_backtrace(std::cerr, "  ");
         }
 
@@ -154,12 +154,12 @@ ChildProcess vfork(const std::function<posix::exit::Status()>& main,
             result = main();
         } catch(const std::exception& e)
         {
-            std::cerr << "core::posix::fork(): An unhandled std::exception occured in the child process:" << std::endl
+            std::cerr << "core::posix::fork(): An unhandled std::exception occurred in the child process:" << std::endl
                       << "  what(): " << e.what() << std::endl;
             print_backtrace(std::cerr, "  ");
         } catch(...)
         {
-            std::cerr << "core::posix::fork(): An unhandled exception occured in the child process." << std::endl;
+            std::cerr << "core::posix::fork(): An unhandled exception occurred in the child process." << std::endl;
             print_backtrace(std::cerr, "  ");
         }
 
