@@ -3,7 +3,8 @@ Section: contrib/utils
 Priority: optional
 Maintainer: Adam Boardman <adamboardman@gmail.com>
 XSBC-Original-Maintainer: Simon Fels <morphis@gravedo.de>
-Build-Depends: debhelper (>= 7),
+Rules-Requires-Root: no
+Build-Depends: debhelper,
                pkg-config,
                dh-systemd,
                cmake,
@@ -35,7 +36,7 @@ Build-Depends: debhelper (>= 7),
                libsystemd-dev,
 	       python3
 Standards-Version: 3.9.7
-Homepage: http://anbox.io
+Homepage: https://anbox.io
 Vcs-Browser: https://github.com/gemian/anbox
 Vcs-Git: https://github.com/gemian/anbox.git
 
