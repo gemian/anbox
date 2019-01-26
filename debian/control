@@ -3,7 +3,6 @@ Section: contrib/utils
 Priority: optional
 Maintainer: Adam Boardman <adamboardman@gmail.com>
 XSBC-Original-Maintainer: Simon Fels <morphis@gravedo.de>
-Rules-Requires-Root: no
 Build-Depends: debhelper,
                pkg-config,
                dh-systemd,
