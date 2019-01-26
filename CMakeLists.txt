@@ -129,7 +129,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/anbox/build/config.h.in
 
 add_subdirectory(external EXCLUDE_FROM_ALL)
 add_subdirectory(src)
-add_subdirectory(tests)
 add_subdirectory(android)
 
 if (NOT "${HOST_CMAKE_C_COMPILER}" STREQUAL "")
