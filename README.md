@@ -53,6 +53,12 @@ well as long as they provide the mandatory kernel modules (see kernel/).
 
 ## Install and Run Android Applications
 
+You will need to get an android image, eg:
+https://build.anbox.io/android-images/2017/08/04/android_1_arm64.img
+
+Download it to:
+/var/lib/anbox/android.img
+
 TBD
 
 ## Build from source
