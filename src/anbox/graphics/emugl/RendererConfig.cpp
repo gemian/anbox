@@ -72,8 +72,9 @@ RendererConfig::RendererConfig(EGLConfig hostConfig, EGLDisplay hostDisplay)
   mAttribValues = new GLint[kConfigAttributesLen];
   for (size_t i = 0; i < kConfigAttributesLen; ++i) {
     mAttribValues[i] = 0;
-    s_egl.eglGetConfigAttrib(hostDisplay, hostConfig, kConfigAttributes[i],
-                             &mAttribValues[i]);
+    DEBUG("configAttrib i: %d, attr: %d ", i, kConfigAttributes[i]);
+    s_egl.eglGetConfigAttrib(hostDisplay, hostConfig, kConfigAttributes[i], &mAttribValues[i]);
+    DEBUG("configAttrib i: %d, value: %d ", i, mAttribValues[i]);
 
     // This implementation supports guest window surfaces by wrapping
     // them around host Pbuffers, so always report it to the guest.
