@@ -176,6 +176,8 @@ bool Renderer::initialize(EGLNativeDisplayType nativeDisplay) {
     return false;
   }
 
+  DEBUG("Scoped Bound");
+
   anbox::graphics::GLExtensions gl_extensions{reinterpret_cast<const char *>(s_gles2.glGetString(GL_EXTENSIONS))};
   if (gl_extensions.support("GL_OES_EGL_image")) {
     m_caps.has_eglimage_texture_2d = egl_extensions.support("EGL_KHR_gl_texture_2D_image");
@@ -203,6 +205,8 @@ bool Renderer::initialize(EGLNativeDisplayType nativeDisplay) {
     return false;
   }
 
+  DEBUG("Got configs");
+
   // Check that we have config for each GLES and GLES2
   size_t nConfigs = m_configs->size();
   int nGLConfigs = 0;
@@ -217,8 +221,11 @@ bool Renderer::initialize(EGLNativeDisplayType nativeDisplay) {
     }
   }
 
+  DEBUG("GLConfigs 1: %d, 2: %d", nGLConfigs, nGL2Configs);
+
   // Fail initialization if no GLES configs exist
   if (nGLConfigs == 0) {
+    ERROR("Failed: No GLES configs found!");
     bind.release();
     return false;
   }
@@ -242,6 +249,8 @@ bool Renderer::initialize(EGLNativeDisplayType nativeDisplay) {
     bind.release();
     return false;
   }
+
+  DEBUG("created TextureDraw");
 
   m_defaultProgram = m_family.add_program(vshader, defaultFShader);
   m_alphaProgram = m_family.add_program(vshader, alphaFShader);

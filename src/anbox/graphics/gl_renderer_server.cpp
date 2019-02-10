@@ -101,7 +101,12 @@ GLRendererServer::GLRendererServer(const Config &config, const std::shared_ptr<w
 
   renderer_->initialize(0);
 
+  DEBUG("::GLRendererServer - renderer initialized");
+
   registerRenderer(renderer_);
+
+  DEBUG("::GLRendererServer - renderer registered");
+
   registerLayerComposer(composer_);
 }
 
