@@ -54,7 +54,7 @@ Window::Window(const std::shared_ptr<Renderer> &renderer,
       native_window_(0) {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 1);
 
-  // NOTE: We don't furce GL initialization of the window as this will
+  // NOTE: We don't force GL initialization of the window as this will
   // be take care of by the Renderer when we attach to it. On EGL
   // initializing GL here will cause a surface to be created and the
   // renderer will attempt to create one too which will not work as
@@ -72,6 +72,8 @@ Window::Window(const std::shared_ptr<Renderer> &renderer,
     BOOST_THROW_EXCEPTION(std::runtime_error(message));
   }
 
+  DEBUG("::Window() - Window Created");
+
   if (utils::get_env_value("ANBOX_NO_SDL_WINDOW_HIT_TEST", "false") == "false")
     if (SDL_SetWindowHitTest(window_, &Window::on_window_hit, this) < 0)
       BOOST_THROW_EXCEPTION(std::runtime_error("Failed to register for window hit test"));
@@ -79,8 +81,16 @@ Window::Window(const std::shared_ptr<Renderer> &renderer,
   SDL_SysWMinfo info;
   SDL_VERSION(&info.version);
   SDL_GetWindowWMInfo(window_, &info);
+
+  DEBUG("::Window() - Info SDL version %d.%d.%d on %d",
+        (int)info.version.major,
+        (int)info.version.minor,
+        (int)info.version.patch,
+        (int)info.subsystem);
+
   switch (info.subsystem) {
     case SDL_SYSWM_X11:
+      DEBUG("::Window() - X11 %d, %d",(int)info.info.x11.display,(int)info.info.x11.window);
       native_display_ = static_cast<EGLNativeDisplayType>(info.info.x11.display);
       native_window_ = static_cast<EGLNativeWindowType>(info.info.x11.window);
       break;

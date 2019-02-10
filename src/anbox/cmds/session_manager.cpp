@@ -113,6 +113,8 @@ anbox::cmds::SessionManager::SessionManager()
                       cli::Description{"Use software rendering instead of hardware accelerated GL rendering"},
                       use_software_rendering_));
 
+  DEBUG("::SessionManager()");
+
   action([this](const cli::Command::Context &) {
     auto trap = core::posix::trap_signals_for_process(
         {core::posix::Signal::sig_term, core::posix::Signal::sig_int});
@@ -131,6 +133,8 @@ anbox::cmds::SessionManager::SessionManager()
       return EXIT_FAILURE;
     }
 
+    DEBUG("::SessionManager() - found binder and ashmem");
+
     utils::ensure_paths({
         SystemConfiguration::instance().socket_dir(),
         SystemConfiguration::instance().input_device_dir(),
@@ -147,6 +151,8 @@ anbox::cmds::SessionManager::SessionManager()
       });
     }
 
+    DEBUG("::SessionManager() - created runtime and dispatcher");
+
     auto input_manager = std::make_shared<input::Manager>(rt);
     auto android_api_stub = std::make_shared<bridge::AndroidApiStub>();
 
@@ -161,6 +167,8 @@ anbox::cmds::SessionManager::SessionManager()
     if (!platform) 
       return EXIT_FAILURE;
 
+    DEBUG("::SessionManager() - created platform");
+
     auto app_db = std::make_shared<application::Database>();
 
     std::shared_ptr<wm::Manager> window_manager;
@@ -171,6 +179,8 @@ anbox::cmds::SessionManager::SessionManager()
       window_manager = std::make_shared<wm::SingleWindowManager>(platform, display_frame, app_db);
       using_single_window = true;
     }
+
+    DEBUG("::SessionManager() - created window manager");
 
     const auto should_force_software_rendering = utils::get_env_value("ANBOX_FORCE_SOFTWARE_RENDERING", "false");
     auto gl_driver = graphics::GLRendererServer::Config::Driver::Host;
@@ -183,9 +193,13 @@ anbox::cmds::SessionManager::SessionManager()
     };
     auto gl_server = std::make_shared<graphics::GLRendererServer>(renderer_config, window_manager);
 
+    DEBUG("::SessionManager() - created render server");
+
     platform->set_window_manager(window_manager);
     platform->set_renderer(gl_server->renderer());
     window_manager->setup();
+
+    DEBUG("::SessionManager() - setup window manager");
 
     auto app_manager = std::static_pointer_cast<application::Manager>(android_api_stub);
     if (!using_single_window) {
@@ -196,9 +210,13 @@ anbox::cmds::SessionManager::SessionManager()
             android_api_stub, wm::Stack::Id::Freeform);
     }
 
+    DEBUG("::SessionManager() - created app manager");
+
     auto audio_server = std::make_shared<audio::Server>(rt, platform);
 
     const auto socket_path = SystemConfiguration::instance().socket_dir();
+
+    DEBUG("::SessionManager() - created audio server");
 
     // The qemu pipe is used as a very fast communication channel between guest
     // and host for things like the GLES emulation/translation, the RIL or ADB.
@@ -238,6 +256,8 @@ anbox::cmds::SessionManager::SessionManager()
                   sender, server, pending_calls);
             }));
 
+    DEBUG("::SessionManager() - created bridge");
+
     container::Configuration container_configuration;
 
     // Instruct healthd to fake battery level as it may take it from other connected
@@ -274,6 +294,8 @@ anbox::cmds::SessionManager::SessionManager()
     auto bus = std::make_shared<anbox::dbus::Bus>(bus_type);
 
     auto skeleton = anbox::dbus::skeleton::Service::create_for_bus(bus, app_manager);
+
+    DEBUG("::SessionManager() - created bus and skeleton");
 
     bus->run_async();
 
