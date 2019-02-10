@@ -83,14 +83,14 @@ Window::Window(const std::shared_ptr<Renderer> &renderer,
   SDL_GetWindowWMInfo(window_, &info);
 
   DEBUG("::Window() - Info SDL version %d.%d.%d on %d",
-        (int)info.version.major,
-        (int)info.version.minor,
-        (int)info.version.patch,
-        (int)info.subsystem);
+        static_cast<int>(info.version.major),
+        static_cast<int>(info.version.minor),
+        static_cast<int>(info.version.patch),
+        static_cast<int>(info.subsystem));
 
   switch (info.subsystem) {
     case SDL_SYSWM_X11:
-      DEBUG("::Window() - X11 %d, %d",(int)info.info.x11.display,(int)info.info.x11.window);
+      DEBUG("::Window() - X11 %x, %d",info.info.x11.display,static_cast<int>(info.info.x11.window));
       native_display_ = static_cast<EGLNativeDisplayType>(info.info.x11.display);
       native_window_ = static_cast<EGLNativeWindowType>(info.info.x11.window);
       break;
