@@ -25,7 +25,8 @@
 namespace anbox {
 namespace container {
 struct DeviceSpecification {
-  uint32_t permission;
+    uint32_t permission;
+    std::string target_path = "";
 };
 
 struct Configuration {
