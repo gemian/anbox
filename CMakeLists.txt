@@ -11,14 +11,14 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic -Wno-variadic-macros -Wextra -fPIC")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -pedantic -Wno-error=pedantic -Wno-variadic-macros -Wextra -fPIC")
 
 # By default, all symbols are visible in the library. We strip out things we don't
 # want at link time, by running a version script (see unity-scopes.map and the
 # setting of LINK_FLAGS below).
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=default")
 
-set(C_AND_CXX_WARNINGS "-pedantic -Wall -Wextra")
+set(C_AND_CXX_WARNINGS "-pedantic -Wno-error=pedantic -Wall -Wextra")
 
 # Some additional warnings not included by the general flags set above.
 set(EXTRA_C_WARNINGS "-Wcast-align -Wcast-qual -Wformat -Wredundant-decls -Wswitch-default")
@@ -27,7 +27,7 @@ set(EXTRA_CXX_WARNINGS "-Wnon-virtual-dtor -Wold-style-cast")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_AND_CXX_WARNINGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_WARNINGS}")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 ${C_AND_CXX_WARNINGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 ${C_AND_CXX_WARNINGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_C_WARNINGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_WARNINGS}")
 
@@ -69,11 +69,17 @@ pkg_check_modules(DBUS dbus-1 REQUIRED)
 pkg_check_modules(LXC lxc REQUIRED)
 pkg_check_modules(PROPERTIES_CPP properties-cpp REQUIRED)
 pkg_check_modules(LIBSYSTEMD libsystemd REQUIRED)
+pkg_check_modules(LIBCAP libcap REQUIRED)
 
 message(STATUS "LXC version: ${LXC_VERSION}")
 if (${LXC_VERSION} VERSION_LESS 3.0)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_LXC2_SUPPORT")
   message(STATUS "Building with LXC 2.x compatibility support")
+endif()
+
+option(ENABLE_X11 "Enable X11 support" ON)
+if (ENABLE_X11)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DX11_SUPPORT")
 endif()
 
 option(ENABLE_WAYLAND "Enable wayland support" ON)
@@ -87,12 +93,15 @@ if (ENABLE_MIR)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMIR_SUPPORT")
 endif()
 
-option(ENABLE_TOUCH_INPUT "Enable touch input support" OFF)
-if (ENABLE_TOUCH_INPUT)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_TOUCH_INPUT")
+if (NOT BINDERFS_PATH)
+  set(BINDERFS_PATH "/dev/binderfs")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMESA_EGL_NO_X11_HEADERS")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEGL_NO_X11")
+
+if((Protobuf_VERSION VERSION_GREATER "3.7") OR (Protobuf_VERSION VERSION_EQUAL "3.7"))
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_PROTOBUF_CALLBACK_HEADER")
+endif()
 
 #####################################################################
 # Enable code coverage calculation with gcov/gcovr/lcov
@@ -111,7 +120,7 @@ ENDIF(CMAKE_BUILD_TYPE MATCHES [cC][oO][vV][eE][rR][aA][gG][eE])
 
 find_package(GMock)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fPIC")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fPIC")
 
 
 if (NOT ANBOX_VERSION)
@@ -127,7 +136,7 @@ set(ANBOX_STATEDIR_FULL "${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/anbox")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/anbox/build/config.h.in
                ${CMAKE_CURRENT_SOURCE_DIR}/src/anbox/build/config.h)
 
-add_subdirectory(external EXCLUDE_FROM_ALL)
+add_subdirectory(external)
 add_subdirectory(src)
 add_subdirectory(android)
 

@@ -34,8 +34,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace anbox {
-namespace utils {
+namespace anbox::utils {
 std::vector<std::string> collect_arguments(int argc, char **argv) {
   std::vector<std::string> result;
   for (int i = 1; i < argc; i++) result.push_back(argv[i]);
@@ -184,13 +183,14 @@ bool is_mounted(const std::string &path) {
   bool is_mounted = false;
   if ((mtab = setmntent("/etc/mtab", "r")) != nullptr) {
     while ((part = getmntent(mtab)) != nullptr) {
-      if ((part->mnt_fsname != nullptr) && (strcmp(part->mnt_fsname, path.c_str())) == 0)
+      if ((part->mnt_fsname != nullptr) && (strcmp(part->mnt_fsname, path.c_str())) == 0) {
         is_mounted = true;
+        break;
+      }
     }
     endmntent(mtab);
   }
   return is_mounted;
-
 }
 
 std::string find_program_on_path(const std::string &name) {
@@ -205,5 +205,4 @@ std::string find_program_on_path(const std::string &name) {
   }
   return "";
 }
-}  // namespace utils
-}  // namespace anbox
+}

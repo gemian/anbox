@@ -27,16 +27,14 @@
 #endif
 
 namespace {
-constexpr const int window_resize_border{30};
-constexpr const int top_drag_area{50};
+constexpr const int window_resize_border{10};
+constexpr const int top_drag_area{42};
 constexpr const int button_size{32};
 constexpr const int button_margin{5};
-constexpr const int button_padding{4};
+constexpr const int button_padding{0};
 }
 
-namespace anbox {
-namespace platform {
-namespace sdl {
+namespace anbox::platform::sdl {
 Window::Id Window::Invalid{-1};
 
 Window::Observer::~Observer() {}
@@ -46,7 +44,8 @@ Window::Window(const std::shared_ptr<Renderer> &renderer,
                const std::shared_ptr<Observer> &observer,
                const graphics::Rect &frame,
                const std::string &title,
-               bool resizable)
+               bool resizable,
+               bool borderless)
     : wm::Window(renderer, task, frame, title),
       id_(id),
       observer_(observer),
@@ -59,7 +58,9 @@ Window::Window(const std::shared_ptr<Renderer> &renderer,
   // initializing GL here will cause a surface to be created and the
   // renderer will attempt to create one too which will not work as
   // only a single surface per EGLNativeWindowType is supported.
-  std::uint32_t flags = SDL_WINDOW_BORDERLESS;
+  std::uint32_t flags = 0;
+  if (borderless)
+    flags |= SDL_WINDOW_BORDERLESS;
   if (resizable)
     flags |= SDL_WINDOW_RESIZABLE;
 
@@ -74,7 +75,10 @@ Window::Window(const std::shared_ptr<Renderer> &renderer,
 
   DEBUG("::Window() - Window Created");
 
-  if (utils::get_env_value("ANBOX_NO_SDL_WINDOW_HIT_TEST", "false") == "false")
+  // If we create a window with border (server-side decoration), We
+  // should not set hit test handler beacuse we don't need to simulate
+  // the behavior of the title bar and resize area.
+  if (borderless && utils::get_env_value("ANBOX_NO_SDL_WINDOW_HIT_TEST", "false") == "false")
     if (SDL_SetWindowHitTest(window_, &Window::on_window_hit, this) < 0)
       BOOST_THROW_EXCEPTION(std::runtime_error("Failed to register for window hit test"));
 
@@ -89,14 +93,16 @@ Window::Window(const std::shared_ptr<Renderer> &renderer,
         static_cast<int>(info.subsystem));
 
   switch (info.subsystem) {
+#if defined(X11_SUPPORT)
     case SDL_SYSWM_X11:
       DEBUG("::Window() - X11 %x, %d",info.info.x11.display,static_cast<int>(info.info.x11.window));
       native_display_ = static_cast<EGLNativeDisplayType>(info.info.x11.display);
       native_window_ = static_cast<EGLNativeWindowType>(info.info.x11.window);
       break;
+#endif
 #if defined(WAYLAND_SUPPORT)
     case SDL_SYSWM_WAYLAND:
-      native_display_ = static_cast<EGLNativeDisplayType>(info.info.wl.display);
+      native_display_ = reinterpret_cast<EGLNativeDisplayType>(info.info.wl.display);
       native_window_ = reinterpret_cast<EGLNativeWindowType>(info.info.wl.surface);
       break;
 #endif
@@ -129,6 +135,17 @@ SDL_HitTestResult Window::on_window_hit(SDL_Window *window, const SDL_Point *pt,
   const auto border_size = graphics::dp_to_pixel(window_resize_border);
   const auto top_drag_area_height = graphics::dp_to_pixel(top_drag_area);
   const auto button_area_width = graphics::dp_to_pixel(button_size + button_padding * 2 + button_margin * 2);
+  const auto flags = SDL_GetWindowFlags(window);
+
+  if (flags & SDL_WINDOW_FULLSCREEN)
+      return SDL_HITTEST_NORMAL;
+
+  if (!(flags & SDL_WINDOW_RESIZABLE)) {
+    if (pt->y < border_size)
+      return SDL_HITTEST_DRAGGABLE;
+    else
+      return SDL_HITTEST_NORMAL;
+  }
 
   if (pt->y < top_drag_area_height) {
     if (pt->x > w - button_area_width && pt->x < w) {
@@ -139,9 +156,14 @@ SDL_HitTestResult Window::on_window_hit(SDL_Window *window, const SDL_Point *pt,
       return SDL_HITTEST_NORMAL;
     }
     return SDL_HITTEST_DRAGGABLE;
-  } else if (pt->x < border_size && pt->y < border_size)
+  }
+
+  if (flags & SDL_WINDOW_MAXIMIZED)
+    return SDL_HITTEST_NORMAL;
+
+  if (pt->x < border_size && pt->y < border_size)
       return SDL_HITTEST_RESIZE_TOPLEFT;
-  else if (pt->x > window_resize_border && pt->x < w - border_size && pt->y < border_size)
+  else if (pt->x > border_size && pt->x < w - border_size && pt->y < border_size)
       return SDL_HITTEST_RESIZE_TOP;
   else if (pt->x > w - border_size && pt->y < border_size)
       return SDL_HITTEST_RESIZE_TOPRIGHT;
@@ -194,9 +216,6 @@ void Window::process_event(const SDL_Event &event) {
     case SDL_WINDOWEVENT_HIDDEN:
       break;
     case SDL_WINDOWEVENT_CLOSE:
-      if (observer_)
-        observer_->window_deleted(id_);
-
       close();
       break;
     default:
@@ -209,6 +228,4 @@ EGLNativeWindowType Window::native_handle() const { return native_window_; }
 Window::Id Window::id() const { return id_; }
 
 std::uint32_t Window::window_id() const { return SDL_GetWindowID(window_); }
-} // namespace sdl
-} // namespace platform
-} // namespace anbox
+}

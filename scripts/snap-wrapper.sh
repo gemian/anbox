@@ -13,8 +13,8 @@ fi
 # where it can be found
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$SNAP/usr/lib/$ARCH/pulseaudio"
 
-# liblxc.so.1 is in $SNAP/lib
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$SNAP/lib"
+# liblxc.so.1 is in $SNAP/usr/lib
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$SNAP/lib:$SNAP/usr/lib"
 
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$SNAP/usr/lib/$ARCH"
 
@@ -31,6 +31,9 @@ export XDG_DATA_HOME="$SNAP_USER_COMMON/app-data"
 # configured but the actual EGL implementation is missing.
 export __EGL_VENDOR_LIBRARY_DIRS="$SNAP/glvnd"
 
+# Suppress "libEGL warning: FIXME: egl/x11 doesn't support front buffer rendering." spam
+export EGL_LOG_LEVEL="fatal"
+
 enable_debug="$(snapctl get debug.enable)"
 if [ "$enable_debug" = true ]; then
 	export ANBOX_LOG_LEVEL=debug
@@ -40,4 +43,18 @@ if [ "$(snapctl get software-rendering.enable)" = true ]; then
 	export ANBOX_FORCE_SOFTWARE_RENDERING=true
 fi
 
-exec "$SNAP"/usr/bin/anbox "$@"
+if [ "$(snapctl get touch-emulation.enable)" = false ]; then
+	export ANBOX_ENABLE_TOUCH_EMULATION=false
+fi
+
+if [ "$(snapctl get server-side-decoration.enable)" = true ]; then
+	export ANBOX_FORCE_SERVER_SIDE_DECORATION=true
+fi
+
+# Use custom Anbox binary for debugging purposes if available
+ANBOX="$SNAP"/usr/bin/anbox
+if [ -e "$SNAP_COMMON"/anbox.debug ]; then
+	ANBOX="$SNAP_COMMON"/anbox.debug
+fi
+
+exec "$ANBOX" "$@"

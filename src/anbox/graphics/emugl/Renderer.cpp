@@ -28,12 +28,9 @@
 
 #include <stdio.h>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wold-style-cast"
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/transform.hpp>
-#pragma GCC diagnostic pop
 
 namespace {
 
@@ -126,8 +123,8 @@ bool Renderer::initialize(EGLNativeDisplayType nativeDisplay) {
                                  EGL_NONE};
 
   int n;
-  if (!s_egl.eglChooseConfig(m_eglDisplay, configAttribs, &m_eglConfig,
-                             1, &n)) {
+  if ((s_egl.eglChooseConfig(m_eglDisplay, configAttribs, &m_eglConfig,
+                             1, &n) == EGL_FALSE) || n == 0) {
     ERROR("Failed to select EGL configuration");
     return false;
   }
@@ -305,8 +302,8 @@ struct RendererWindow {
   EGLNativeWindowType native_window = 0;
   EGLSurface surface = EGL_NO_SURFACE;
   anbox::graphics::Rect viewport;
-  glm::mat4 screen_to_gl_coords;
-  glm::mat4 display_transform;
+  glm::mat4 screen_to_gl_coords = glm::mat4(1.0f);
+  glm::mat4 display_transform = glm::mat4(1.0f);
 };
 
 RendererWindow *Renderer::createNativeWindow(

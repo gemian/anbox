@@ -22,6 +22,8 @@
 
 #include <memory>
 
+#include "anbox/application/sensors_state.h"
+#include "anbox/application/gps_info_broker.h"
 #include "anbox/do_not_copy_or_move.h"
 #include "anbox/network/connection_creator.h"
 #include "anbox/network/connections.h"
@@ -31,12 +33,11 @@
 
 class Renderer;
 
-namespace anbox {
-namespace qemu {
+namespace anbox::qemu {
 class PipeConnectionCreator
     : public network::ConnectionCreator<boost::asio::local::stream_protocol> {
  public:
-  PipeConnectionCreator(const std::shared_ptr<Renderer> &renderer, const std::shared_ptr<Runtime> &rt);
+  PipeConnectionCreator(std::shared_ptr<Renderer> renderer, std::shared_ptr<Runtime> rt, std::shared_ptr<anbox::application::SensorsState> ss, std::shared_ptr<anbox::application::GpsInfoBroker> gpsInfoBroker);
   ~PipeConnectionCreator() noexcept;
 
   void create_connection_for(
@@ -51,6 +52,7 @@ class PipeConnectionCreator
     qemud_sensors,
     qemud_camera,
     qemud_fingerprint,
+    qemud_gps,
     qemud_gsm,
     qemud_adb,
     bootanimation,
@@ -67,10 +69,10 @@ class PipeConnectionCreator
 
   std::shared_ptr<Renderer> renderer_;
   std::shared_ptr<Runtime> runtime_;
+  std::shared_ptr<application::SensorsState> sensors_state_;
+  std::shared_ptr<application::GpsInfoBroker> gps_info_broker_;
   std::atomic<int> next_connection_id_;
   std::shared_ptr<network::Connections<network::SocketConnection>> const connections_;
 };
-}  // namespace qemu
-}  // namespace anbox
-
+}
 #endif

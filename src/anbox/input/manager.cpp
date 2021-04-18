@@ -23,10 +23,14 @@
 
 #include <boost/format.hpp>
 
-namespace anbox {
-namespace input {
+namespace anbox::input {
 Manager::Manager(const std::shared_ptr<Runtime> &runtime) : runtime_(runtime) {
-  utils::ensure_paths({SystemConfiguration::instance().input_device_dir()});
+  const auto dir = SystemConfiguration::instance().input_device_dir();
+  utils::ensure_paths({dir});
+
+  // The directory is bind-mounted into the container but might have user
+  // permissions only (rwx------). Make sure it is accessible.
+  ::chmod(dir.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 }
 
 Manager::~Manager() {}
@@ -48,5 +52,4 @@ std::string Manager::build_device_path(const std::uint32_t &id) {
   return (boost::format("%1%/event%2%") % SystemConfiguration::instance().input_device_dir() % id).str();
 }
 
-}  // namespace input
-}  // namespace anbox
+}

@@ -26,8 +26,11 @@
 
 #include <lxc/lxccontainer.h>
 
-namespace anbox {
-namespace container {
+namespace anbox::common {
+  class BinderDevice;
+}
+
+namespace anbox::container {
 class LxcContainer : public Container {
  public:
   LxcContainer(bool privileged,
@@ -47,6 +50,7 @@ class LxcContainer : public Container {
   void setup_id_map();
   void setup_network();
   void add_device(const std::string& device, const DeviceSpecification& spec);
+  bool create_binder_devices(unsigned int device_count, std::vector<std::unique_ptr<common::BinderDevice>>& devices);
 
   State state_;
   lxc_container *container_;
@@ -56,8 +60,10 @@ class LxcContainer : public Container {
   std::string container_network_gateway_;
   std::vector<std::string> container_network_dns_servers_;
   network::Credentials creds_;
+  std::vector<std::unique_ptr<common::BinderDevice>> binder_devices_;
 };
-}  // namespace container
-}  // namespace anbox
 
+// get_id_map() is published for unit testing
+std::vector<std::string> get_id_map(uid_t uid, gid_t gid);
+}
 #endif

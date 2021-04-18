@@ -16,6 +16,7 @@
 #define CPU_FEATURES_INCLUDE_CPUINFO_AARCH64_H_
 
 #include "cpu_features_macros.h"
+#include "cpu_features_cache_info.h"
 
 CPU_FEATURES_START_CPP_NAMESPACE
 
@@ -61,5 +62,9 @@ int GetAarch64FeaturesEnumValue(const Aarch64Features* features,
 const char* GetAarch64FeaturesEnumName(Aarch64FeaturesEnum);
 
 CPU_FEATURES_END_CPP_NAMESPACE
+
+#if !defined(CPU_FEATURES_ARCH_AARCH64)
+#error "Including cpuinfo_aarch64.h from a non-aarch64 target."
+#endif
 
 #endif  // CPU_FEATURES_INCLUDE_CPUINFO_AARCH64_H_

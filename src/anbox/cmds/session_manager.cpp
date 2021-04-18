@@ -15,40 +15,47 @@
  *
  */
 
+#include <boost/algorithm/string/split.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wswitch-default"
+#include <sys/prctl.h>
+
+#include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 
-#include "core/posix/signal.h"
-
-#include "anbox/application/launcher_storage.h"
 #include "anbox/application/database.h"
+#include "anbox/application/launcher_storage.h"
+#include "anbox/application/sensor_type.h"
+#include "anbox/application/sensors_state.h"
+#include "anbox/application/gps_info_broker.h"
 #include "anbox/audio/server.h"
 #include "anbox/bridge/android_api_stub.h"
 #include "anbox/bridge/platform_api_skeleton.h"
 #include "anbox/bridge/platform_message_processor.h"
-#include "anbox/graphics/gl_renderer_server.h"
-
 #include "anbox/cmds/session_manager.h"
 #include "anbox/common/dispatcher.h"
-#include "anbox/system_configuration.h"
 #include "anbox/container/client.h"
+#include "anbox/dbus/application_manager_server.h"
+#include "anbox/dbus/gps_server.h"
+#include "anbox/dbus/sensors_server.h"
 #include "anbox/dbus/bus.h"
-#include "anbox/dbus/skeleton/service.h"
+#include "anbox/dbus/interface.h"
+#include "anbox/dbus/sensors_server.h"
+#include "anbox/graphics/emugl/Renderer.h"
+#include "anbox/graphics/gl_renderer_server.h"
 #include "anbox/input/manager.h"
 #include "anbox/logger.h"
 #include "anbox/network/published_socket_connector.h"
+#include "anbox/platform/base_platform.h"
 #include "anbox/qemu/pipe_connection_creator.h"
 #include "anbox/rpc/channel.h"
 #include "anbox/rpc/connection_creator.h"
 #include "anbox/runtime.h"
-#include "anbox/platform/base_platform.h"
+#include "anbox/system_configuration.h"
 #include "anbox/wm/multi_window_manager.h"
 #include "anbox/wm/single_window_manager.h"
-
+#include "core/posix/signal.h"
 #include "external/xdg/xdg.h"
-
-#include <sys/prctl.h>
 
 #pragma GCC diagnostic pop
 
@@ -70,7 +77,7 @@ class NullConnectionCreator : public anbox::network::ConnectionCreator<
     socket->close();
   }
 };
-}
+}  // namespace
 
 void anbox::cmds::SessionManager::launch_appmgr_if_needed(const std::shared_ptr<bridge::AndroidApiStub> &android_api_stub) {
   if (!single_window_)
@@ -112,6 +119,18 @@ anbox::cmds::SessionManager::SessionManager()
   flag(cli::make_flag(cli::Name{"software-rendering"},
                       cli::Description{"Use software rendering instead of hardware accelerated GL rendering"},
                       use_software_rendering_));
+  flag(cli::make_flag(cli::Name{"no-touch-emulation"},
+                      cli::Description{"Disable touch emulation applied on mouse inputs"},
+                      no_touch_emulation_));
+  flag(cli::make_flag(cli::Name{"server-side-decoration"},
+                      cli::Description{"Prefer to use server-side decoration instead of client-side decoration"},
+                      server_side_decoration_));
+  flag(cli::make_flag(cli::Name{"disabled-sensors"},
+                      cli::Description{"Sensors to disable, comma delimited"},
+                      disabled_sensors_));
+  flag(cli::make_flag(cli::Name{"rootless"},
+                      cli::Description{"Run in rootless window mode"},
+                      rootless_));
 
   DEBUG("::SessionManager()");
 
@@ -128,13 +147,7 @@ anbox::cmds::SessionManager::SessionManager()
       return EXIT_FAILURE;
     }
 
-    auto binder = "/dev/binder";
-    // If available, use own binder to not cause problem with existing binder
-    if (fs::exists("/dev/anbox-binder")) {
-      DEBUG("Using anbox-binder");
-      binder = "/dev/anbox-binder";
-    }
-    if (!fs::exists(binder) || !fs::exists("/dev/ashmem")) {
+    if ((!fs::exists("/dev/binder") && !fs::exists(BINDERFS_PATH)) || !fs::exists("/dev/ashmem")) {
       ERROR("Failed to start as either binder or ashmem kernel drivers are not loaded");
       return EXIT_FAILURE;
     }
@@ -166,11 +179,25 @@ anbox::cmds::SessionManager::SessionManager()
     if (single_window_)
       display_frame = window_size_;
 
+    const auto should_enable_touch_emulation = utils::get_env_value("ANBOX_ENABLE_TOUCH_EMULATION", "true");
+    if (should_enable_touch_emulation == "false" || no_touch_emulation_)
+      no_touch_emulation_ = true;
+
+    const auto should_force_server_side_decoration = utils::get_env_value("ANBOX_FORCE_SERVER_SIDE_DECORATION", "false");
+    if (should_force_server_side_decoration == "true")
+      server_side_decoration_ = true;
+
+    platform::Configuration platform_config;
+    platform_config.single_window = single_window_;
+    platform_config.no_touch_emulation = no_touch_emulation_;
+    platform_config.display_frame = display_frame;
+    platform_config.server_side_decoration = server_side_decoration_;
+    platform_config.rootless = rootless_;
+
     auto platform = platform::create(utils::get_env_value("ANBOX_PLATFORM", "sdl"),
                                      input_manager,
-                                     display_frame,
-                                     single_window_);
-    if (!platform) 
+                                     platform_config);
+    if (!platform)
       return EXIT_FAILURE;
 
     DEBUG("::SessionManager() - created platform");
@@ -191,12 +218,11 @@ anbox::cmds::SessionManager::SessionManager()
     const auto should_force_software_rendering = utils::get_env_value("ANBOX_FORCE_SOFTWARE_RENDERING", "false");
     auto gl_driver = graphics::GLRendererServer::Config::Driver::Host;
     if (should_force_software_rendering == "true" || use_software_rendering_)
-     gl_driver = graphics::GLRendererServer::Config::Driver::Software;
+      gl_driver = graphics::GLRendererServer::Config::Driver::Software;
 
-    graphics::GLRendererServer::Config renderer_config {
-      gl_driver,
-      single_window_
-    };
+    graphics::GLRendererServer::Config renderer_config{
+        gl_driver,
+        single_window_};
     auto gl_server = std::make_shared<graphics::GLRendererServer>(renderer_config, window_manager);
 
     DEBUG("::SessionManager() - created render server");
@@ -213,7 +239,7 @@ anbox::cmds::SessionManager::SessionManager()
       // only launch applications in freeform mode as otherwise the window tracking
       // doesn't work.
       app_manager = std::make_shared<application::RestrictedManager>(
-            android_api_stub, wm::Stack::Id::Freeform);
+          android_api_stub, wm::Stack::Id::Freeform);
     }
 
     DEBUG("::SessionManager() - created app manager");
@@ -224,19 +250,27 @@ anbox::cmds::SessionManager::SessionManager()
 
     DEBUG("::SessionManager() - created audio server");
 
+    auto sensors_state = std::make_shared<application::SensorsState>();
+    std::stringstream disabled_sensors_stream(disabled_sensors_);
+    std::string disabled_sensor_name;
+    while (std::getline(disabled_sensors_stream, disabled_sensor_name, ',')) {
+      sensors_state->disabled_sensors |= application::SensorTypeHelper::FromString(disabled_sensor_name);
+    }
+    auto gps_info_broker = std::make_shared<application::GpsInfoBroker>();
+
     // The qemu pipe is used as a very fast communication channel between guest
     // and host for things like the GLES emulation/translation, the RIL or ADB.
     auto qemu_pipe_connector =
         std::make_shared<network::PublishedSocketConnector>(
             utils::string_format("%s/qemu_pipe", socket_path), rt,
-            std::make_shared<qemu::PipeConnectionCreator>(gl_server->renderer(), rt));
+            std::make_shared<qemu::PipeConnectionCreator>(gl_server->renderer(), rt, sensors_state, gps_info_broker));
 
     boost::asio::deadline_timer appmgr_start_timer(rt->service());
 
     auto bridge_connector = std::make_shared<network::PublishedSocketConnector>(
         utils::string_format("%s/anbox_bridge", socket_path), rt,
         std::make_shared<rpc::ConnectionCreator>(
-            rt, [&](const std::shared_ptr<network::MessageSender> &sender) {
+            [&](const std::shared_ptr<network::MessageSender> &sender) {
               auto pending_calls = std::make_shared<rpc::PendingCallCache>();
               auto rpc_channel =
                   std::make_shared<rpc::Channel>(pending_calls, sender);
@@ -274,19 +308,20 @@ anbox::cmds::SessionManager::SessionManager()
     // See https://github.com/anbox/anbox/issues/780 for further details.
     container_configuration.extra_properties.push_back("ro.boot.fake_battery=1");
 
+    if (server_side_decoration_)
+      container_configuration.extra_properties.push_back("ro.anbox.no_decorations=1");
+
     if (!standalone_) {
       container_configuration.bind_mounts = {
-        {qemu_pipe_connector->socket_file(), "/dev/qemu_pipe"},
-        {bridge_connector->socket_file(), "/dev/anbox_bridge"},
-        {audio_server->socket_file(), "/dev/anbox_audio"},
-        {SystemConfiguration::instance().input_device_dir(), "/dev/input"},
+          {qemu_pipe_connector->socket_file(), "/dev/qemu_pipe"},
+          {bridge_connector->socket_file(), "/dev/anbox_bridge"},
+          {audio_server->socket_file(), "/dev/anbox_audio"},
+          {SystemConfiguration::instance().input_device_dir(), "/dev/input"},
 
       };
 
       container_configuration.devices = {
-        {binder, {0666, "dev/binder"}},
-        {"/dev/ashmem", {0666}},
-        {"/dev/fuse", {0666}},
+          {"/dev/fuse", {0666}},
       };
 
       dispatcher->dispatch([&]() {
@@ -294,16 +329,13 @@ anbox::cmds::SessionManager::SessionManager()
       });
     }
 
-    auto bus_type = anbox::dbus::Bus::Type::Session;
-    if (use_system_dbus_)
-      bus_type = anbox::dbus::Bus::Type::System;
-    auto bus = std::make_shared<anbox::dbus::Bus>(bus_type);
-
-    auto skeleton = anbox::dbus::skeleton::Service::create_for_bus(bus, app_manager);
-
-    DEBUG("::SessionManager() - created bus and skeleton");
-
-    bus->run_async();
+    auto connection = use_system_dbus_
+                          ? sdbus::createSystemBusConnection(dbus::interface::Service::name())
+                          : sdbus::createSessionBusConnection(dbus::interface::Service::name());
+    ApplicationManagerServer appManagerServer(*connection, dbus::interface::Service::path(), app_manager);
+    SensorsServer sensorsServer(*connection, dbus::interface::Service::path(), sensors_state);
+    GpsServer gpsServer(*connection, dbus::interface::Service::path(), gps_info_broker);
+    connection->enterEventLoopAsync();
 
     rt->start();
     trap->run();

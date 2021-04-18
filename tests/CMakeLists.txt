@@ -5,8 +5,8 @@ include_directories(
   ${CMAKE_SOURCE_DIR}
   ${CMAKE_SOURCE_DIR}/external/android-emugl/host/include
   ${CMAKE_SOURCE_DIR}/src
-  ${CMAKE_SOURCE_DIR}/external/glm
 )
+link_directories(${CMAKE_CURRENT_BINARY_DIR}/../external/sdbus-cpp/src/sdbus-cpp-build/)
 
 macro(ANBOX_ADD_TEST test_name src)
   add_executable(

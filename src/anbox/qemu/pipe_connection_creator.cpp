@@ -18,6 +18,7 @@
 #include <string>
 
 #include "anbox/graphics/opengles_message_processor.h"
+#include "anbox/graphics/opengles_socket_connection.h"
 #include "anbox/logger.h"
 #include "anbox/network/local_socket_messenger.h"
 #include "anbox/qemu/adb_message_processor.h"
@@ -30,6 +31,7 @@
 #include "anbox/qemu/null_message_processor.h"
 #include "anbox/qemu/pipe_connection_creator.h"
 #include "anbox/qemu/sensors_message_processor.h"
+#include "anbox/qemu/gps_message_processor.h"
 
 namespace ba = boost::asio;
 
@@ -55,6 +57,8 @@ std::string client_type_to_string(
       return "adb";
     case anbox::qemu::PipeConnectionCreator::client_type::bootanimation:
       return "boot-animation";
+    case anbox::qemu::PipeConnectionCreator::client_type::qemud_gps:
+      return "gps";
     case anbox::qemu::PipeConnectionCreator::client_type::invalid:
       break;
     default:
@@ -63,11 +67,12 @@ std::string client_type_to_string(
   return "unknown";
 }
 }
-namespace anbox {
-namespace qemu {
-PipeConnectionCreator::PipeConnectionCreator(const std::shared_ptr<Renderer> &renderer, const std::shared_ptr<Runtime> &rt)
+namespace anbox::qemu {
+PipeConnectionCreator::PipeConnectionCreator(std::shared_ptr<Renderer> renderer, std::shared_ptr<Runtime> rt, std::shared_ptr<anbox::application::SensorsState> sensors_state, std::shared_ptr<anbox::application::GpsInfoBroker> gpsInfoBroker)
     : renderer_(renderer),
       runtime_(rt),
+      sensors_state_(sensors_state),
+      gps_info_broker_(gpsInfoBroker),
       next_connection_id_(0),
       connections_(
           std::make_shared<network::Connections<network::SocketConnection>>()) {
@@ -86,8 +91,14 @@ void PipeConnectionCreator::create_connection_for(
   if (!processor)
     BOOST_THROW_EXCEPTION(std::runtime_error("Unhandled client type"));
 
-  auto const &connection = std::make_shared<network::SocketConnection>(
-      messenger, messenger, next_id(), connections_, processor);
+  std::shared_ptr<network::SocketConnection> connection;
+  if (type == client_type::opengles)
+    connection = std::make_shared<graphics::OpenGlesSocketConnection>(
+        messenger, messenger, next_id(), connections_, processor);
+  else
+    connection = std::make_shared<network::SocketConnection>(
+        messenger, messenger, next_id(), connections_, processor);
+
   connection->set_name(client_type_to_string(type));
   connections_->add(connection);
   connection->read_next_message();
@@ -132,6 +143,8 @@ PipeConnectionCreator::client_type PipeConnectionCreator::identify_client(
     return client_type::bootanimation;
   else if (utils::string_starts_with(identifier_and_args, "pipe:qemud:adb"))
     return client_type::qemud_adb;
+  else if (utils::string_starts_with(identifier_and_args, "pipe:qemud:gps"))
+    return client_type::qemud_gps;
 
   return client_type::invalid;
 }
@@ -147,7 +160,7 @@ PipeConnectionCreator::create_processor(
   else if (type == client_type::qemud_hw_control)
     return std::make_shared<qemu::HwControlMessageProcessor>(messenger);
   else if (type == client_type::qemud_sensors)
-    return std::make_shared<qemu::SensorsMessageProcessor>(messenger);
+    return std::make_shared<qemu::SensorsMessageProcessor>(messenger, sensors_state_);
   else if (type == client_type::qemud_camera)
     return std::make_shared<qemu::CameraMessageProcessor>(messenger);
   else if (type == client_type::qemud_fingerprint)
@@ -156,6 +169,8 @@ PipeConnectionCreator::create_processor(
     return std::make_shared<qemu::GsmMessageProcessor>(messenger);
   else if (type == client_type::qemud_adb)
     return std::make_shared<qemu::AdbMessageProcessor>(runtime_, messenger);
+  else if (type == client_type::qemud_gps)
+    return std::make_shared<qemu::GpsMessageProcessor>(messenger, gps_info_broker_);
 
   return std::make_shared<qemu::NullMessageProcessor>();
 }
@@ -163,5 +178,4 @@ PipeConnectionCreator::create_processor(
 int PipeConnectionCreator::next_id() {
   return next_connection_id_.fetch_add(1);
 }
-}  // namespace qemu
-}  // namespace anbox
+}

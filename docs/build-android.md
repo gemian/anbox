@@ -63,11 +63,13 @@ Once the build is done we need to take the results and create an image file
 suitable for Anbox.
 
 ```
-$ cd $HOME/anbox-work/anbox
+$ cd $HOME/anbox-work/vendor/anbox
 $ scripts/create-package.sh \
-    $PWD/../out/target/product/x86_64/ramdisk.img \
-    $PWD/../out/target/product/x86_64/system.img
+    $PWD/../../out/target/product/x86_64/ramdisk.img \
+    $PWD/../../out/target/product/x86_64/system.img
 ```
+
+(replace `x86_64` with your target architecture)
 
 This will create an *android.img* file in the current directory.
 

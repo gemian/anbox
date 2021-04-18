@@ -35,14 +35,28 @@ CPU_FEATURES_START_CPP_NAMESPACE
 #define AARCH64_HWCAP_CRC32 (1UL << 7)
 
 // http://elixir.free-electrons.com/linux/latest/source/arch/arm/include/uapi/asm/hwcap.h
+#define ARM_HWCAP_SWP (1UL << 0)
+#define ARM_HWCAP_HALF (1UL << 1)
+#define ARM_HWCAP_THUMB (1UL << 2)
+#define ARM_HWCAP_26BIT (1UL << 3)
+#define ARM_HWCAP_FAST_MULT (1UL << 4)
+#define ARM_HWCAP_FPA (1UL << 5)
 #define ARM_HWCAP_VFP (1UL << 6)
+#define ARM_HWCAP_EDSP (1UL << 7)
+#define ARM_HWCAP_JAVA (1UL << 8)
 #define ARM_HWCAP_IWMMXT (1UL << 9)
+#define ARM_HWCAP_CRUNCH (1UL << 10)
+#define ARM_HWCAP_THUMBEE (1UL << 11)
 #define ARM_HWCAP_NEON (1UL << 12)
 #define ARM_HWCAP_VFPV3 (1UL << 13)
 #define ARM_HWCAP_VFPV3D16 (1UL << 14)
+#define ARM_HWCAP_TLS (1UL << 15)
 #define ARM_HWCAP_VFPV4 (1UL << 16)
 #define ARM_HWCAP_IDIVA (1UL << 17)
 #define ARM_HWCAP_IDIVT (1UL << 18)
+#define ARM_HWCAP_VFPD32 (1UL << 19)
+#define ARM_HWCAP_LPAE (1UL << 20)
+#define ARM_HWCAP_EVTSTRM (1UL << 21)
 #define ARM_HWCAP2_AES (1UL << 0)
 #define ARM_HWCAP2_PMULL (1UL << 1)
 #define ARM_HWCAP2_SHA1 (1UL << 2)
@@ -50,16 +64,9 @@ CPU_FEATURES_START_CPP_NAMESPACE
 #define ARM_HWCAP2_CRC32 (1UL << 4)
 
 // http://elixir.free-electrons.com/linux/latest/source/arch/mips/include/uapi/asm/hwcap.h
-#define MIPS_HWCAP_VZ (1UL << 0)
-#define MIPS_HWCAP_EVA (1UL << 1)
-#define MIPS_HWCAP_HTW (1UL << 2)
-#define MIPS_HWCAP_FPU (1UL << 3)
-#define MIPS_HWCAP_MIPS32R2 (1UL << 4)
-#define MIPS_HWCAP_MIPS32R5 (1UL << 5)
-#define MIPS_HWCAP_MIPS64R6 (1UL << 6)
-#define MIPS_HWCAP_DSPR1 (1UL << 7)
-#define MIPS_HWCAP_DSPR2 (1UL << 8)
-#define MIPS_HWCAP_MSA (1UL << 9)
+#define MIPS_HWCAP_R6 (1UL << 0)
+#define MIPS_HWCAP_MSA (1UL << 1)
+#define MIPS_HWCAP_CRC32 (1UL << 2)
 
 // http://elixir.free-electrons.com/linux/latest/source/arch/powerpc/include/uapi/asm/cputable.h
 #ifndef _UAPI__ASM_POWERPC_CPUTABLE_H

@@ -23,25 +23,20 @@
 #include <memory>
 
 #include "anbox/android/intent.h"
-#include "anbox/dbus/stub/application_manager.h"
 #include "anbox/wm/stack.h"
 #include "anbox/cli.h"
 
-namespace anbox {
-namespace cmds {
+namespace anbox::cmds {
 class Launch : public cli::CommandWithFlagsAndAction {
  public:
   Launch();
 
  private:
   bool launch_session_manager();
-  bool try_launch_activity(const std::shared_ptr<dbus::stub::ApplicationManager> &stub);
 
   android::Intent intent_;
   wm::Stack::Id stack_ = wm::Stack::Id::Default;
   bool use_system_dbus_ = false;
 };
-}  // namespace cmds
-}  // namespace anbox
-
+}
 #endif

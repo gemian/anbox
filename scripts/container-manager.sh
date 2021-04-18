@@ -29,7 +29,7 @@ fi
 
 # Re-exec outside of apparmor confinement
 if [ -d /sys/kernel/security/apparmor ] && [ "$(cat /proc/self/attr/current)" != "unconfined" ]; then
-	exec /usr/sbin/aa-exec -p unconfined -- "$0" "$@"
+	exec /usr/bin/aa-exec -p unconfined -- "$0" "$@"
 fi
 
 start() {
@@ -83,6 +83,20 @@ start() {
 	container_network_dns=$(snapctl get container.network.dns)
 	if [ -n "$container_network_dns" ]; then
 		EXTRA_ARGS="$EXTRA_ARGS --container-network-dns-servers=$container_network_dns"
+	fi
+
+	# Load all relevant kernel modules
+	modprobe binder_linux
+	modprobe ashmem_linux
+
+	# Ensure we have binderfs mounted when our kernel supports it
+	if cat /proc/filesystems | grep -q binder ; then
+		mkdir -p "$SNAP_COMMON"/binderfs
+		# Remove old mounts so that we start fresh without any devices allocated
+		if cat /proc/mounts | grep -q "binder $SNAP_COMMON/binderfs" ; then
+			umount "$SNAP_COMMON"/binderfs
+		fi
+		mount -t binder none "$SNAP_COMMON"/binderfs
 	fi
 
 	exec "$SNAP"/bin/anbox-wrapper.sh container-manager \

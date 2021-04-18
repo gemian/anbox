@@ -35,8 +35,7 @@ namespace {
 unsigned int const serialization_buffer_size = 2048;
 }
 
-namespace anbox {
-namespace network {
+namespace anbox::network {
 template <typename stream_protocol>
 BaseSocketMessenger<stream_protocol>::BaseSocketMessenger() {}
 
@@ -76,9 +75,6 @@ Credentials BaseSocketMessenger<stream_protocol>::creds() const {
 template <typename stream_protocol>
 ssize_t BaseSocketMessenger<stream_protocol>::send_raw(char const* data,
                                                        size_t length) {
-  VariableLengthArray<serialization_buffer_size> whole_message{length};
-  std::copy(data, data + length, whole_message.data());
-
   std::unique_lock<std::mutex> lg(message_lock);
   return ::send(socket_fd, data, length, MSG_NOSIGNAL);
 }
@@ -86,13 +82,10 @@ ssize_t BaseSocketMessenger<stream_protocol>::send_raw(char const* data,
 template <typename stream_protocol>
 void BaseSocketMessenger<stream_protocol>::send(char const* data,
                                                 size_t length) {
-  VariableLengthArray<serialization_buffer_size> whole_message{length};
-  std::copy(data, data + length, whole_message.data());
-
   for (;;) {
     try {
       std::unique_lock<std::mutex> lg(message_lock);
-      ba::write(*socket, ba::buffer(whole_message.data(), whole_message.size()),
+      ba::write(*socket, ba::buffer(data, length),
                 boost::asio::transfer_all());
     } catch (const boost::system::system_error& err) {
       if (err.code() == boost::asio::error::try_again) continue;
@@ -153,5 +146,4 @@ void BaseSocketMessenger<stream_protocol>::close() {
 
 template class BaseSocketMessenger<boost::asio::local::stream_protocol>;
 template class BaseSocketMessenger<boost::asio::ip::tcp>;
-}  // namespace network
-}  // namespace anbox
+}

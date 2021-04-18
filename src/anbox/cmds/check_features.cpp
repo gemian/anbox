@@ -19,7 +19,9 @@
 #include "anbox/utils.h"
 
 #include "cpu_features_macros.h"
+#if defined(CPU_FEATURES_ARCH_X86)
 #include "cpuinfo_x86.h"
+#endif
 
 namespace {
 std::vector<std::string> cpu_whitelist = {
@@ -55,6 +57,7 @@ anbox::cmds::CheckFeatures::CheckFeatures()
           cli::Description{"Check that the host system supports all necessary features"}} {
 
   action([this](const cli::Command::Context&) {
+    (void)this;
 #if defined(CPU_FEATURES_ARCH_X86)
     const auto info = cpu_features::GetX86Info();
     std::vector<std::string> missing_features;

@@ -14,8 +14,7 @@
 
 #include "anbox/graphics/buffer_queue.h"
 
-namespace anbox {
-namespace graphics {
+namespace anbox::graphics {
 BufferQueue::BufferQueue(size_t capacity)
     : capacity_(capacity), buffers_(new Buffer[capacity]) {}
 
@@ -45,17 +44,6 @@ int BufferQueue::push_locked(
     can_push_.wait(lock);
   }
   return try_push_locked(std::move(buffer));
-}
-
-int BufferQueue::wait_until_not_empty_locked(std::unique_lock<std::mutex> &lock) {
-  while (count_ == 0) {
-    if (closed_)
-      // Closed queue is empty.
-      return -EIO;
-    can_pop_.wait(lock);
-  }
-
-  return 0;
 }
 
 int BufferQueue::try_pop_locked(Buffer *buffer) {
@@ -100,5 +88,4 @@ void BufferQueue::close_locked() {
     can_pop_.notify_all();
   }
 }
-}  // namespace graphics
-}  // namespace anbox
+}

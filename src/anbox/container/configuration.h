@@ -22,11 +22,10 @@
 #include <vector>
 #include <unordered_map>
 
-namespace anbox {
-namespace container {
+namespace anbox::container {
 struct DeviceSpecification {
-    uint32_t permission;
-    std::string target_path = "";
+  uint32_t permission;
+  std::string old_device_name = "";
 };
 
 struct Configuration {
@@ -34,7 +33,5 @@ struct Configuration {
   std::unordered_map<std::string, DeviceSpecification> devices;
   std::vector<std::string> extra_properties;
 };
-}  // namespace container
-}  // namespace anbox
-
+}
 #endif

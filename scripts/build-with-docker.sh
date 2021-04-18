@@ -1,3 +1,3 @@
 #!/bin/sh
-docker pull ubuntu:18.04
-docker run -i -t -v $PWD:/anbox ubuntu:18.04 /anbox/scripts/clean-build.sh
+docker build -t anbox/anbox-builder .
+docker run --rm --user=$(id -u):$(id -g) --volume=$PWD:/anbox anbox/anbox-builder /anbox/scripts/build.sh $@

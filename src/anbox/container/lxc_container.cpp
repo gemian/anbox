@@ -16,6 +16,8 @@
  */
 
 #include "anbox/android/ip_config_builder.h"
+#include "anbox/common/binder_device_allocator.h"
+#include "anbox/common/binder_device.h"
 #include "anbox/container/lxc_container.h"
 #include "anbox/system_configuration.h"
 #include "anbox/logger.h"
@@ -46,6 +48,7 @@ constexpr const char *default_container_ip_address{"192.168.250.2"};
 constexpr const std::uint32_t default_container_ip_prefix_length{24};
 constexpr const char *default_host_ip_address{"192.168.250.1"};
 constexpr const char *default_dns_server{"8.8.8.8"};
+constexpr int num_needed_binders{1};
 
 #ifdef ENABLE_LXC2_SUPPORT
 constexpr const char *lxc_config_idmap_key{"lxc.id_map"};
@@ -77,17 +80,16 @@ constexpr const char *lxc_config_log_file_key{"lxc.log.file"};
 constexpr const char *lxc_config_apparmor_profile_key{"lxc.apparmor.profile"};
 #endif
 
-constexpr int device_major(__dev_t dev) {
+constexpr int device_major(dev_t dev) {
   return int(((dev >> 8) & 0xfff) | ((dev >> 32) & (0xfffff000)));
 }
 
-constexpr int device_minor(__dev_t dev) {
+constexpr int device_minor(dev_t dev) {
   return int((dev & 0xff) | ((dev >> 12) & (0xffffff00)));
 }
 } // namespace
 
-namespace anbox {
-namespace container {
+namespace anbox::container {
 LxcContainer::LxcContainer(bool privileged,
                            bool rootfs_overlay,
                            const std::string& container_network_address,
@@ -115,25 +117,33 @@ LxcContainer::~LxcContainer() {
     lxc_container_put(container_);
 }
 
-void LxcContainer::setup_id_map() {
+std::vector<std::string> get_id_map(uid_t uid, gid_t gid) {
   const auto base_id = unprivileged_uid;
-  const auto max_id = 65536;
+  const auto max_id = 100000;
+  std::vector<std::string> config;
 
-  set_config_item(lxc_config_idmap_key, utils::string_format("u 0 %d %d", base_id, android_system_uid - 1));
-  set_config_item(lxc_config_idmap_key, utils::string_format("g 0 %d %d", base_id, android_system_uid - 1));
+  config.push_back(utils::string_format("u 0 %d %d", base_id, android_system_uid - 1));
+  config.push_back(utils::string_format("g 0 %d %d", base_id, android_system_uid - 1));
 
   // We need to bind the user id for the one running the client side
   // process as he is the owner of various socket files we bind mount
   // into the container.
-  set_config_item(lxc_config_idmap_key, utils::string_format("u %d %d 1", android_system_uid, creds_.uid()));
-  set_config_item(lxc_config_idmap_key, utils::string_format("g %d %d 1", android_system_uid, creds_.gid()));
+  config.push_back(utils::string_format("u %d %d 1", android_system_uid, uid));
+  config.push_back(utils::string_format("g %d %d 1", android_system_uid, gid));
 
-  set_config_item(lxc_config_idmap_key, utils::string_format("u %d %d %d", android_system_uid + 1,
+  config.push_back(utils::string_format("u %d %d %d", android_system_uid + 1,
                                                      base_id + android_system_uid + 1,
-                                                     max_id - creds_.uid() - 1));
-  set_config_item(lxc_config_idmap_key, utils::string_format("g %d %d %d", android_system_uid + 1,
+                                                     max_id - android_system_uid));
+  config.push_back(utils::string_format("g %d %d %d", android_system_uid + 1,
                                                      base_id + android_system_uid + 1,
-                                                     max_id - creds_.gid() - 1));
+                                                     max_id - android_system_uid));
+  return config;
+}
+
+void LxcContainer::setup_id_map() {
+  auto config = get_id_map(creds_.uid(), creds_.gid());
+  for (std::string val : config)
+    set_config_item(lxc_config_idmap_key, val);
 }
 
 void LxcContainer::setup_network() {
@@ -156,14 +166,20 @@ void LxcContainer::setup_network() {
   ip_conf.set_assignment(android::IpConfigBuilder::Assignment::Static);
 
   std::string address = default_container_ip_address;
-  if (!container_network_address_.empty())
-    address = container_network_address_;
-  ip_conf.set_link_address(address, default_container_ip_prefix_length);
+  std::uint32_t ip_prefix_length = default_container_ip_prefix_length;
+  if (!container_network_address_.empty()) {
+    auto tokens = utils::string_split(container_network_address_, '/');
+    if (tokens.size() == 1 || tokens.size() == 2)
+      address = tokens[0];
+    if (tokens.size() == 2)
+      ip_prefix_length = atoi(tokens[1].c_str());
+  }
+  ip_conf.set_link_address(address, ip_prefix_length);
 
   std::string gateway = default_host_ip_address;
   if (!container_network_gateway_.empty())
     gateway = container_network_gateway_;
-  ip_conf.set_gateway(default_host_ip_address);
+  ip_conf.set_gateway(gateway);
 
   if (container_network_dns_servers_.size() > 0)
     ip_conf.set_dns_servers(container_network_dns_servers_);
@@ -220,7 +236,12 @@ void LxcContainer::setup_network() {
 
 void LxcContainer::add_device(const std::string& device, const DeviceSpecification& spec) {
   struct stat st;
-  int r = stat(device.c_str(), &st);
+  const std::string *old_device_name;
+  if (!spec.old_device_name.empty())
+    old_device_name = &spec.old_device_name;
+  else
+    old_device_name = &device;
+  int r = stat(old_device_name->c_str(), &st);
   if (r < 0) {
     const auto msg = utils::string_format("Failed to retrieve information about device %s", device);
     throw std::runtime_error(msg);
@@ -264,14 +285,27 @@ void LxcContainer::add_device(const std::string& device, const DeviceSpecificati
 
   auto target_path = device;
   // Strip a leading slash as LXC doesn't like that
-  if (!spec.target_path.empty())
-    target_path = spec.target_path;
-  else if (utils::string_starts_with(device, "/"))
+  if (utils::string_starts_with(device, "/"))
     target_path = device.substr(1, device.length() - 1);
 
   const auto entry = utils::string_format("%s %s none bind,create=file,optional 0 0",
                                           new_device_path, target_path);
   set_config_item("lxc.mount.entry", entry);
+}
+
+bool LxcContainer::create_binder_devices(unsigned int device_count, std::vector<std::unique_ptr<common::BinderDevice>>& devices) {
+  // We will always allocate a static set of binders devices even if the container
+  // doesn't use all of them
+  for (unsigned int n = 0; n < device_count; n++) {
+    auto device = common::BinderDeviceAllocator::new_device();
+    if (!device)
+      return false;
+
+    DEBUG("Allocated binder device %s", device->path());
+    devices.push_back(std::move(device));
+  }
+
+  return true;
 }
 
 void LxcContainer::start(const Configuration &configuration) {
@@ -319,6 +353,9 @@ void LxcContainer::start(const Configuration &configuration) {
 
   set_config_item(lxc_config_init_cmd_key, "/anbox-init.sh");
 
+  // forbid android from waking up the system (https://github.com/anbox/anbox/issues/1436)
+  set_config_item("lxc.cap.drop", "wake_alarm");
+
 #ifdef ENABLE_SNAP_CONFINEMENT
   // If we're running inside the snap environment snap-confine already created a
   // cgroup for us we need to use as otherwise presevering a namespace wont help.
@@ -337,12 +374,14 @@ void LxcContainer::start(const Configuration &configuration) {
   const auto log_path = SystemConfiguration::instance().log_dir();
   set_config_item(lxc_config_log_file_key, utils::string_format("%s/container.log", log_path).c_str());
 
+  // set RLIMIT_NICE to 1 so binder_linux does not complain
+  set_config_item("lxc.prlimit.nice", "1");
+
 #ifndef ENABLE_LXC2_SUPPORT
     // Dump the console output to disk to have a chance to debug early boot problems
     set_config_item("lxc.console.logfile", utils::string_format("%s/console.log", log_path).c_str());
     set_config_item("lxc.console.rotate", "1");
 #endif
-
 
   setup_network();
 
@@ -359,6 +398,24 @@ void LxcContainer::start(const Configuration &configuration) {
     setup_id_map();
 
   auto bind_mounts = configuration.bind_mounts;
+  auto devices = configuration.devices;
+
+  // If we have binderfs support we can dynamically allocate all our devices
+  if (common::BinderDeviceAllocator::is_supported()) {
+    DEBUG("Using binderfs to allocate our own binder nodes");
+
+    std::vector<std::unique_ptr<common::BinderDevice>> binder_devices;
+    if (!create_binder_devices(num_needed_binders, binder_devices) ||
+        binder_devices.size() != num_needed_binders)
+      throw std::runtime_error("Failed to allocate necessary binder devices");
+
+    bind_mounts.insert({binder_devices[0]->path().string(), "/dev/binder"});
+    binder_devices_ = std::move(binder_devices);
+  } else {
+    DEBUG("Using static binder device /dev/binder");
+    devices.insert({"/dev/binder", { 0666 }});
+  }
+
   for (const auto &bind_mount : bind_mounts) {
     std::string create_type = "file";
 
@@ -378,8 +435,6 @@ void LxcContainer::start(const Configuration &configuration) {
     set_config_item("lxc.mount.entry", entry);
   }
 
-  auto devices = configuration.devices;
-
   // Additional devices we need in our container
   devices.insert({"/dev/console", {0600}});
   devices.insert({"/dev/full", {0666}});
@@ -388,6 +443,8 @@ void LxcContainer::start(const Configuration &configuration) {
   devices.insert({"/dev/tty", {0666}});
   devices.insert({"/dev/urandom", {0666}});
   devices.insert({"/dev/zero", {0666}});
+  devices.insert({"/dev/tun", {0660, "/dev/net/tun"}});
+  devices.insert({"/dev/ashmem", {0666}});
 
   // Remove all left over devices from last time first before
   // creating any new ones
@@ -425,6 +482,20 @@ void LxcContainer::start(const Configuration &configuration) {
                                          new_default_prop_path.string(), rootfs_path));
   }
 
+  fs::path bindtab = SystemConfiguration::instance().data_dir() / "bindtab";
+  if ( fs::exists(bindtab) && fs::is_regular_file(bindtab) ) {
+    std::ifstream bindtab_data;
+    bindtab_data.open(bindtab.string(), std::ios_base::in);
+
+    if (bindtab_data.is_open()) {
+      std::string bind_mnt;
+      while (std::getline(bindtab_data, bind_mnt)) {
+        if (bind_mnt.rfind("/", 0) == 0)
+          set_config_item("lxc.mount.entry", bind_mnt);
+      }
+    }
+  }
+
   if (!container_->save_config(container_, nullptr))
     throw std::runtime_error("Failed to save container configuration");
 
@@ -444,6 +515,7 @@ void LxcContainer::stop() {
     throw std::runtime_error("Failed to stop container");
 
   state_ = Container::State::inactive;
+  binder_devices_.clear();
 
   DEBUG("Container successfully stopped");
 }
@@ -457,5 +529,4 @@ void LxcContainer::set_config_item(const std::string &key,
 }
 
 Container::State LxcContainer::state() { return state_; }
-}  // namespace container
-}  // namespace anbox
+}

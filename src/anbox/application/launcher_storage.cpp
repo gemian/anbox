@@ -31,8 +31,7 @@ namespace {
 constexpr const char *snap_exe_path{"/snap/bin/anbox"};
 }
 
-namespace anbox {
-namespace application {
+namespace anbox::application {
 LauncherStorage::LauncherStorage(const fs::path &path) :
   path_(path) {}
 
@@ -94,10 +93,11 @@ void LauncherStorage::add_or_update(const Database::Item &item) {
   const auto item_icon_path = path_for_item_icon(package_name);
   if (auto desktop_item = std::ofstream(path_for_item(package_name).string())) {
     desktop_item << "[Desktop Entry]" << std::endl
+                 << "Type=Application" << std::endl
                  << "Name=" << item.name << std::endl
                  << "Exec=" << exec << std::endl
                  << "Terminal=false" << std::endl
-                 << "Type=Application" << std::endl
+                 << "Categories=Anbox;" << std::endl
                  << "Icon=" << item_icon_path.string() << std::endl;
   } else {
     BOOST_THROW_EXCEPTION(std::runtime_error("Failed to create desktop item"));
@@ -121,5 +121,4 @@ void LauncherStorage::remove(const Database::Item &item) {
     fs::remove(item_icon_path);
 }
 
-}  // namespace application
-}  // namespace anbox
+}

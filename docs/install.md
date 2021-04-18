@@ -3,7 +3,7 @@
 To install Anbox your system need to support [snaps](https://snapcraft.io). We
 do not officially support any other distribution method of Anbox at the moment
 but there are community made packages for various distributions (e.g. Arch Linux).
-However please keep in mind that the Anbox project can give not support them
+However please keep in mind that the Anbox project can not give support to them
 and its solely in the responsibility of the community packager to keep up with
 upstream development and update the packaging to any new changes. Please feel
 free to report still any bugs you encounter as they may not be related to the
@@ -33,6 +33,29 @@ everything you need to run the full Anbox experience.
 
 ## Install necessary kernel modules
 
+### On Ubuntu 19.04 and later
+
+There is no need to install those modules on a recent Ubuntu or Debian: Even Ubuntu 18.04 LTS and Debian Stable have got the modules. However, you may get an error loading `ashmem_linux` if SecureBoot is enabled:
+
+```
+ $ sudo modprobe ashmem_linux
+ modprobe: ERROR: could not insert 'ashmem_linux': Operation not permitted
+```
+
+You can confirm that SecureBoot is enabled by running the following command:
+
+```
+$ sudo mokutil --sb-state
+SecureBoot enabled
+```
+
+There are two ways around this. One is to disable the SecureBoot: https://wiki.ubuntu.com/UEFI/SecureBoot/DKMS. 
+Following [this post](https://github.com/anbox/anbox/issues/1570), the other way is to sign the `ashmem_linux` kernel module yourself. Note that you may have to enroll your own key, as described [here](https://ubuntu.com/blog/how-to-sign-things-for-secure-boot).
+
+### Before Ubuntu 19.04
+
+You should have the modules on your system already. However, you can still try to use the ppa (no longer maintained) if `sudo modprobe ashmem_linux binder_linux` can't find the modules.
+
 In order to add the PPA to your Ubuntu system please run the following commands:
 
 ```
@@ -40,10 +63,17 @@ In order to add the PPA to your Ubuntu system please run the following commands:
  $ sudo apt update
  $ sudo apt install anbox-modules-dkms
 ```
+> In case `add-apt-repository` is missing, install it via:
+> ```
+> sudo apt install software-properties-common
+> ```
 
 These will add the PPA to your system and install the `anbox-modules-dkms`
 package which contains the ashmem and binder kernel modules. They will be
 automatically rebuild everytime the kernel packages on your system update.
+
+> On system with UEFI the Secure Boot should be disabled, see
+> https://wiki.ubuntu.com/UEFI/SecureBoot/DKMS
 
 After you installed the `anbox-modules-dkms` package you have to manually
 load the kernel modules. The next time your system starts they will be
@@ -54,6 +84,8 @@ automatically loaded.
  $ sudo modprobe binder_linux
 ```
 
+## Verify that kernel modules are loaded
+
 Now you should have two new nodes in your systems `/dev` directory:
 
 ```
@@ -61,6 +93,10 @@ Now you should have two new nodes in your systems `/dev` directory:
  /dev/ashmem
  /dev/binder
 ```
+
+> In Ubuntu 19.10 the binder driver doesn't create /dev/binder when loaded. That is intentional. 
+> Instead it provides support for binderfs (see https://brauner.github.io/2019/01/09/android-binderfs.html) 
+> which is instead since PR anbox/anbox#1309
 
 ## Install the Anbox snap
 

@@ -22,8 +22,11 @@
 #include "anbox_container.pb.h"
 #include "anbox_rpc.pb.h"
 
-namespace anbox {
-namespace container {
+#ifdef USE_PROTOBUF_CALLBACK_HEADER
+#include <google/protobuf/stubs/callback.h>
+#endif
+
+namespace anbox::container {
 
 const std::chrono::milliseconds ManagementApiStub::stop_waiting_timeout{3000};
 
@@ -49,7 +52,6 @@ void ManagementApiStub::start_container(const Configuration &configuration) {
     auto device_message = message_configuration->add_devices();
     device_message->set_path(item.first);
     device_message->set_permission(item.second.permission);
-    device_message->set_target_path(item.second.target_path);
   }
 
   for (const auto &prop : configuration.extra_properties)
@@ -99,5 +101,4 @@ void ManagementApiStub::container_stopped(Request<protobuf::rpc::Void> *request)
   request->wh.result_received();
 }
 
-}  // namespace container
-}  // namespace anbox
+}

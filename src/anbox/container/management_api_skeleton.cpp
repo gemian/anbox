@@ -25,12 +25,14 @@
 #include "anbox_container.pb.h"
 #include "anbox_rpc.pb.h"
 
-namespace anbox {
-namespace container {
+#ifdef USE_PROTOBUF_CALLBACK_HEADER
+#include <google/protobuf/stubs/callback.h>
+#endif
+
+namespace anbox::container {
 ManagementApiSkeleton::ManagementApiSkeleton(
-    const std::shared_ptr<rpc::PendingCallCache> &pending_calls,
     const std::shared_ptr<Container> &container)
-    : pending_calls_(pending_calls), container_(container) {}
+    : container_(container) { }
 
 ManagementApiSkeleton::~ManagementApiSkeleton() {}
 
@@ -55,7 +57,7 @@ void ManagementApiSkeleton::start_container(
 
   for (int n = 0; n < configuration.devices_size(); n++) {
     const auto device = configuration.devices(n);
-    container_configuration.devices.insert({device.path(), {device.permission(), device.target_path()}});
+    container_configuration.devices.insert({device.path(), {device.permission()}});
   }
 
   for (int n = 0; n < configuration.extra_properties_size(); n++) {
@@ -92,5 +94,4 @@ void ManagementApiSkeleton::stop_container(
 
   done->Run();
 }
-}  // namespace container
-}  // namespace anbox
+}

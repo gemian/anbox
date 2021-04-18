@@ -21,8 +21,7 @@
 #include <memory>
 #include <mutex>
 
-namespace anbox {
-namespace graphics {
+namespace anbox::graphics {
 using Buffer = anbox::common::SmallFixedVector<char, 512>;
 
 class BufferQueue {
@@ -32,8 +31,6 @@ class BufferQueue {
   bool can_push_locked() const { return !closed_ && (count_ < capacity_); }
   bool can_pop_locked() const { return count_ > 0U; }
   bool is_closed_locked() const { return closed_; }
-
-  int wait_until_not_empty_locked(std::unique_lock<std::mutex> &lock);
 
   int try_push_locked(Buffer &&buffer);
   int push_locked(Buffer &&buffer, std::unique_lock<std::mutex> &lock);
@@ -52,7 +49,5 @@ class BufferQueue {
   std::condition_variable can_pop_;
 };
 
-}  // namespace graphics
-}  // namespace anbox
-
+}
 #endif

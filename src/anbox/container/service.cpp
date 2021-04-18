@@ -32,8 +32,7 @@
 
 namespace fs = boost::filesystem;
 
-namespace anbox {
-namespace container {
+namespace anbox::container {
 std::shared_ptr<Service> Service::create(const std::shared_ptr<Runtime> &rt, const Configuration &config) {
   auto sp = std::shared_ptr<Service>(new Service(rt, config));
 
@@ -86,7 +85,7 @@ void Service::new_client(std::shared_ptr<boost::asio::local::stream_protocol::so
   auto pending_calls = std::make_shared<rpc::PendingCallCache>();
   auto rpc_channel = std::make_shared<rpc::Channel>(pending_calls, messenger);
   auto server = std::make_shared<container::ManagementApiSkeleton>(
-      pending_calls, std::make_shared<LxcContainer>(config_.privileged,
+      std::make_shared<LxcContainer>(config_.privileged,
                                                     config_.rootfs_overlay,
                                                     config_.container_network_address,
                                                     config_.container_network_gateway,
@@ -102,5 +101,4 @@ void Service::new_client(std::shared_ptr<boost::asio::local::stream_protocol::so
   connections_->add(connection);
   connection->read_next_message();
 }
-}  // namespace container
-}  // namespace anbox
+}

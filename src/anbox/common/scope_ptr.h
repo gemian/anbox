@@ -19,8 +19,7 @@
 
 #include <stdlib.h>
 
-namespace anbox {
-namespace common {
+namespace anbox::common {
 
 struct FreeDelete {
   template <class T>
@@ -31,7 +30,7 @@ struct FreeDelete {
 
 template <class Func>
 struct FuncDelete {
-  explicit FuncDelete(Func f = {}) : mF(f) {}
+  explicit FuncDelete(Func f) : mF(f) {}
 
   FuncDelete(const FuncDelete& other) = default;
   FuncDelete(FuncDelete&& other) = default;
@@ -95,5 +94,4 @@ makeCustomScopedPtr(T data, Func deleter) {
       data, FuncDelete<typename std::decay<Func>::type>(deleter));
 }
 
-}  // namespace common
-}  // namespace anbox
+}

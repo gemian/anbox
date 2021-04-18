@@ -22,29 +22,29 @@
 #include "anbox/platform/sdl/sdl_wrapper.h"
 #include "anbox/platform/base_platform.h"
 #include "anbox/graphics/emugl/DisplayManager.h"
+#include "anbox/input/device.h"
 
 #include <map>
 #include <thread>
 
 class Renderer;
 
-namespace anbox {
-namespace input {
-class Device;
-class Manager;
-}  // namespace input
-namespace wm {
-class Manager;
-} // namespace wm
-namespace platform {
-namespace sdl {
+namespace anbox::input {
+  class Device;
+  class Manager;
+}
+
+namespace anbox::wm {
+  class Manager;
+}
+
+namespace anbox::platform::sdl {
 class Platform : public std::enable_shared_from_this<Platform>,
                        public platform::BasePlatform,
                        public Window::Observer {
  public:
   Platform(const std::shared_ptr<input::Manager> &input_manager,
-                 const graphics::Rect &static_display_frame = graphics::Rect::Invalid,
-                 bool single_window = false);
+           const Configuration &config);
   ~Platform();
 
   std::shared_ptr<wm::Window> create_window(
@@ -74,7 +74,13 @@ class Platform : public std::enable_shared_from_this<Platform>,
   void process_events();
   void process_input_event(const SDL_Event &event);
 
+  bool adjust_coordinates(std::int32_t &x, std::int32_t &y);
+  bool adjust_coordinates(SDL_Window *window, std::int32_t &x, std::int32_t &y);
+  bool calculate_touch_coordinates(const SDL_Event &event, std::int32_t &x,
+                                   std::int32_t &y);
+
   static Window::Id next_window_id();
+  static constexpr std::uint32_t emulated_touch_id_ = 0;
 
   std::shared_ptr<Renderer> renderer_;
   std::shared_ptr<input::Manager> input_manager_;
@@ -90,10 +96,20 @@ class Platform : public std::enable_shared_from_this<Platform>,
   std::shared_ptr<input::Device> touch_;
   graphics::Rect display_frame_;
   bool window_size_immutable_ = false;
-  bool single_window_ = false;
-};
-} // namespace sdl
-} // namespace platform
-} // namespace anbox
+  std::uint32_t focused_sdl_window_id_ = 0;
+  bool video_has_been_closed_ = false;
+  Configuration config_;
 
+  static const int MAX_FINGERS = 10;
+  static const int MAX_TRACKING_ID = 10;
+  int touch_slots[MAX_FINGERS];
+  int last_slot = -1;
+
+  int find_touch_slot(int id);
+  void push_slot(std::vector<input::Event> &touch_events, int slot);
+  void push_finger_down(int x, int y, int finger_id, std::vector<input::Event> &touch_events);
+  void push_finger_up(int finger_id, std::vector<input::Event> &touch_events);
+  void push_finger_motion(int x, int y, int finger_id, std::vector<input::Event> &touch_events);
+};
+}
 #endif

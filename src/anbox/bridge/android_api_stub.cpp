@@ -26,6 +26,10 @@
 #include "anbox_rpc.pb.h"
 
 #include <boost/filesystem.hpp>
+#ifdef USE_PROTOBUF_CALLBACK_HEADER
+#include <google/protobuf/stubs/callback.h>
+#endif
+
 
 namespace fs = boost::filesystem;
 
@@ -33,8 +37,7 @@ namespace {
 constexpr const std::chrono::milliseconds default_rpc_call_timeout{30000};
 } // namespace
 
-namespace anbox {
-namespace bridge {
+namespace anbox::bridge {
 AndroidApiStub::AndroidApiStub() {}
 
 AndroidApiStub::~AndroidApiStub() {}
@@ -219,5 +222,4 @@ void AndroidApiStub::task_resized(Request<protobuf::rpc::Void> *request) {
   (void)request;
   resize_task_handle_.result_received();
 }
-}  // namespace bridge
-}  // namespace anbox
+}
