@@ -6,9 +6,11 @@ Wants=network.target
 ConditionPathExists=/var/lib/anbox/android.img
 
 [Service]
+ExecStartPre=/usr/bin/mount -t tmpfs tmpfs /var/lib/anbox/logs
 ExecStartPre=/usr/share/anbox/anbox-bridge.sh start
 ExecStart=/usr/bin/anbox container-manager --daemon --privileged --data-path=/var/lib/anbox
 ExecStopPost=/usr/share/anbox/anbox-bridge.sh stop
+ExecStopPost=/usr/bin/umount /var/lib/anbox/logs
 
 [Install]
 WantedBy=multi-user.target
