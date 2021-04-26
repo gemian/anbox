@@ -55,7 +55,7 @@ if [ -n "$SNAP" ]; then
 fi
 
 use_iptables_lock="-w"
-iptables -w -L -n > /dev/null 2>&1 || use_iptables_lock=""
+iptables-legacy -w -L -n > /dev/null 2>&1 || use_iptables_lock=""
 
 _netmask2cidr () {
     # Assumes there's no "255." after a non-255 byte in the mask
@@ -119,17 +119,17 @@ start() {
     if [ -n "${IPV4_ADDR}" ] && [ -n "${IPV4_NETMASK}" ] && [ -n "${IPV4_NETWORK}" ]; then
         echo 1 > /proc/sys/net/ipv4/ip_forward
         if [ "${IPV4_NAT}" = "true" ]; then
-            iptables "${use_iptables_lock}" -t nat -A POSTROUTING -s "${IPV4_NETWORK}" ! -d "${IPV4_NETWORK}" -j MASQUERADE -m comment --comment "managed by anbox-bridge"
+            iptables-legacy "${use_iptables_lock}" -t nat -A POSTROUTING -s "${IPV4_NETWORK}" ! -d "${IPV4_NETWORK}" -j MASQUERADE -m comment --comment "managed by anbox-bridge"
         fi
     fi
 
-    iptables "${use_iptables_lock}" -I INPUT -i "${BRIDGE}" -p udp --dport 67 -j ACCEPT -m comment --comment "managed by anbox-bridge"
-    iptables "${use_iptables_lock}" -I INPUT -i "${BRIDGE}" -p tcp --dport 67 -j ACCEPT -m comment --comment "managed by anbox-bridge"
-    iptables "${use_iptables_lock}" -I INPUT -i "${BRIDGE}" -p udp --dport 53 -j ACCEPT -m comment --comment "managed by anbox-bridge"
-    iptables "${use_iptables_lock}" -I INPUT -i "${BRIDGE}" -p tcp --dport 53 -j ACCEPT -m comment --comment "managed by anbox-bridge"
-    iptables "${use_iptables_lock}" -I FORWARD -i "${BRIDGE}" -j ACCEPT -m comment --comment "managed by anbox-bridge"
-    iptables "${use_iptables_lock}" -I FORWARD -o "${BRIDGE}" -j ACCEPT -m comment --comment "managed by anbox-bridge"
-    iptables "${use_iptables_lock}" -t mangle -A POSTROUTING -o "${BRIDGE}" -p udp -m udp --dport 68 -j CHECKSUM --checksum-fill -m comment --comment "managed by anbox-bridge"
+    iptables-legacy "${use_iptables_lock}" -I INPUT -i "${BRIDGE}" -p udp --dport 67 -j ACCEPT -m comment --comment "managed by anbox-bridge"
+    iptables-legacy "${use_iptables_lock}" -I INPUT -i "${BRIDGE}" -p tcp --dport 67 -j ACCEPT -m comment --comment "managed by anbox-bridge"
+    iptables-legacy "${use_iptables_lock}" -I INPUT -i "${BRIDGE}" -p udp --dport 53 -j ACCEPT -m comment --comment "managed by anbox-bridge"
+    iptables-legacy "${use_iptables_lock}" -I INPUT -i "${BRIDGE}" -p tcp --dport 53 -j ACCEPT -m comment --comment "managed by anbox-bridge"
+    iptables-legacy "${use_iptables_lock}" -I FORWARD -i "${BRIDGE}" -j ACCEPT -m comment --comment "managed by anbox-bridge"
+    iptables-legacy "${use_iptables_lock}" -I FORWARD -o "${BRIDGE}" -j ACCEPT -m comment --comment "managed by anbox-bridge"
+    iptables-legacy "${use_iptables_lock}" -t mangle -A POSTROUTING -o "${BRIDGE}" -p udp -m udp --dport 68 -j CHECKSUM --checksum-fill -m comment --comment "managed by anbox-bridge"
 
     touch "${varrun}/network_up"
     FAILED=0
@@ -140,16 +140,16 @@ stop() {
 
     if [ -d /sys/class/net/${BRIDGE} ]; then
         ifdown ${BRIDGE}
-        iptables ${use_iptables_lock} -D INPUT -i ${BRIDGE} -p udp --dport 67 -j ACCEPT -m comment --comment "managed by anbox-bridge"
-        iptables ${use_iptables_lock} -D INPUT -i ${BRIDGE} -p tcp --dport 67 -j ACCEPT -m comment --comment "managed by anbox-bridge"
-        iptables ${use_iptables_lock} -D INPUT -i ${BRIDGE} -p udp --dport 53 -j ACCEPT -m comment --comment "managed by anbox-bridge"
-        iptables ${use_iptables_lock} -D INPUT -i ${BRIDGE} -p tcp --dport 53 -j ACCEPT -m comment --comment "managed by anbox-bridge"
-        iptables ${use_iptables_lock} -D FORWARD -i ${BRIDGE} -j ACCEPT -m comment --comment "managed by anbox-bridge"
-        iptables ${use_iptables_lock} -D FORWARD -o ${BRIDGE} -j ACCEPT -m comment --comment "managed by anbox-bridge"
-        iptables ${use_iptables_lock} -t mangle -D POSTROUTING -o ${BRIDGE} -p udp -m udp --dport 68 -j CHECKSUM --checksum-fill -m comment --comment "managed by anbox-bridge"
+        iptables-legacy ${use_iptables_lock} -D INPUT -i ${BRIDGE} -p udp --dport 67 -j ACCEPT -m comment --comment "managed by anbox-bridge"
+        iptables-legacy ${use_iptables_lock} -D INPUT -i ${BRIDGE} -p tcp --dport 67 -j ACCEPT -m comment --comment "managed by anbox-bridge"
+        iptables-legacy ${use_iptables_lock} -D INPUT -i ${BRIDGE} -p udp --dport 53 -j ACCEPT -m comment --comment "managed by anbox-bridge"
+        iptables-legacy ${use_iptables_lock} -D INPUT -i ${BRIDGE} -p tcp --dport 53 -j ACCEPT -m comment --comment "managed by anbox-bridge"
+        iptables-legacy ${use_iptables_lock} -D FORWARD -i ${BRIDGE} -j ACCEPT -m comment --comment "managed by anbox-bridge"
+        iptables-legacy ${use_iptables_lock} -D FORWARD -o ${BRIDGE} -j ACCEPT -m comment --comment "managed by anbox-bridge"
+        iptables-legacy ${use_iptables_lock} -t mangle -D POSTROUTING -o ${BRIDGE} -p udp -m udp --dport 68 -j CHECKSUM --checksum-fill -m comment --comment "managed by anbox-bridge"
 
         if [ -n "${IPV4_NETWORK}" ] && [ "${IPV4_NAT}" = "true" ]; then
-            iptables ${use_iptables_lock} -t nat -D POSTROUTING -s ${IPV4_NETWORK} ! -d ${IPV4_NETWORK} -j MASQUERADE -m comment --comment "managed by anbox-bridge"
+            iptables-legacy ${use_iptables_lock} -t nat -D POSTROUTING -s ${IPV4_NETWORK} ! -d ${IPV4_NETWORK} -j MASQUERADE -m comment --comment "managed by anbox-bridge"
         fi
 
         # if ${BRIDGE} has attached interfaces, don't destroy the bridge
